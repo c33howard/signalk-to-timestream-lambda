@@ -1,0 +1,14 @@
+{
+  "name": "signalk-to-timestream-lambda",
+  "version": "1.0.0",
+  "description": "Lambda worker to convert signalk csv to timestreamp",
+  "main": "index.js",
+  "author": "Craig Howard <craig@choward.ca>",
+  "repository": "https://github.com/c33howard/signalk-to-timestream-lambda.git",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "aws-sdk": "^2.764.0",
+    "fast-csv": "^4.3.5",
+    "lodash": "^4.17.4"
+  }
+}
