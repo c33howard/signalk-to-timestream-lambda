@@ -24,6 +24,7 @@ exports.handler = async (event) => {
 
     const database_name = process.env.DATABASE_NAME;
     const table_name = process.env.TABLE_NAME;
+    const should_delete = process.env.DELETE_FROM_S3_ON_SUCCESS;
     // TODO: couldn't get this working with aws-sdk-v3
     const timestream_write = new aws.TimestreamWrite();
 
@@ -40,6 +41,19 @@ exports.handler = async (event) => {
         };
 
         return s3.getObject(get_object_command).createReadStream();
+    };
+
+    let _delete_from_s3 = function() {
+        const bucket = event.Records[0].s3.bucket.name;
+        const key = decodeURIComponent(event.Records[0].s3.object.key);
+        console.log(`delete_object ${bucket}:${key}`);
+
+        const delete_object_command = {
+            Bucket: bucket,
+            Key: key
+        };
+
+        return s3.deleteObject(delete_object_command).createReadStream();
     };
 
     let _parse_csv = function(body) {
@@ -135,6 +149,11 @@ exports.handler = async (event) => {
             const ts = await _write_to_timestream(rows);
 
             console.log(`done: uploaded ${ts.length} batches to timestream`);
+
+            if (should_delete) {
+                await _delete_from_s3();
+                console.log(`done: delete object from s3`);
+            }
 
             resolve('ok');
         } catch (err) {
