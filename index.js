@@ -24,33 +24,34 @@ exports.handler = async (event) => {
 
     const database_name = process.env.DATABASE_NAME;
     const table_name = process.env.TABLE_NAME;
-    const should_delete = process.env.DELETE_FROM_S3_ON_SUCCESS;
+    const should_delete = process.env.DELETE_FROM_S3_ON_SUCCESS === "yes";
     // TODO: couldn't get this working with aws-sdk-v3
     const timestream_write = new aws.TimestreamWrite();
+
+    const sns_message = event.Records[0].Sns.Message;
+    const s3_record = JSON.parse(sns_message).Records[0].s3;
+    const s3_bucket = s3_record.bucket.name;
+    const s3_key = decodeURIComponent(s3_record.object.key);
 
     console.log('starting');
 
     let _get_from_s3 = function() {
-        const bucket = event.Records[0].s3.bucket.name;
-        const key = decodeURIComponent(event.Records[0].s3.object.key);
-        console.log(`get_object ${bucket}:${key}`);
+        console.log(`get_object ${s3_bucket}:${s3_key}`);
 
         const get_object_command = {
-            Bucket: bucket,
-            Key: key
+            Bucket: s3_bucket,
+            Key: s3_key
         };
 
         return s3.getObject(get_object_command).createReadStream();
     };
 
     let _delete_from_s3 = function() {
-        const bucket = event.Records[0].s3.bucket.name;
-        const key = decodeURIComponent(event.Records[0].s3.object.key);
-        console.log(`delete_object ${bucket}:${key}`);
+        console.log(`delete_object ${s3_bucket}:${s3_key}`);
 
         const delete_object_command = {
-            Bucket: bucket,
-            Key: key
+            Bucket: s3_bucket,
+            Key: s3_key
         };
 
         return s3.deleteObject(delete_object_command).createReadStream();
