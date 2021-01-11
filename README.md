@@ -11,7 +11,7 @@ First, do an npm install in this directory, to get all the dependencies.  This
 might be cleanest in a docker instance:
 
 ```
-docker run -v $(pwd):/code node:12 bash
+docker run -it -v $(pwd):/code node:12 bash
 cd /code
 npm install
 ```
