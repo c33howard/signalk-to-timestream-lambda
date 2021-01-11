@@ -14,7 +14,7 @@
  */
 
 const aws = require('aws-sdk');
-const csv = require('fast-csv');
+const from_batch = require('signalk-batcher').from_batch;
 const zlib = require('zlib');
 const _ = require('lodash');
 
@@ -57,15 +57,14 @@ exports.handler = async (event) => {
         return s3.deleteObject(delete_object_command).createReadStream();
     };
 
-    let _parse_csv = function(body) {
+    let _parse_json = function(body) {
         return new Promise(function(resolve, reject) {
             const unzipped_stream = body.pipe(zlib.createGunzip());
-            const row_stream = unzipped_stream.pipe(csv.parse({ headers: true }));
 
-            let rows = [];
-            row_stream.on('error', reject);
-            row_stream.on('data', row => rows.push(row));
-            row_stream.on('end', () => resolve(rows));
+            let str = '';
+            unzipped_stream.on('error', reject);
+            unzipped_stream.on('data', data => str += data);
+            unzipped_stream.on('end', () => resolve(JSON.parse(str)));
         });
     };
 
@@ -79,31 +78,28 @@ exports.handler = async (event) => {
         }
     };
 
-    let _write_to_timestream = function(rows) {
-        // start with a list of points in timestream format for each row
-        let records = rows.map(function(row) {
-            // pull out the measure name
-            const name = row.path;
-            const data = _.omit(row, ['path']);
+    let _write_to_timestream = function(points) {
+        const records = points.map(function(item) {
+            const value_type = _value_to_type(item.value);
+            // cast to Number, which is IEEE 754, so Timestream accepts this,
+            // probably redundant, but I saw some weird errors about number
+            // format
+            if (value_type === "DOUBLE") {
+                item.value = Number.parseFloat(item.value);
+            }
 
-            // remaining points are time: value pairs, map each to timestream format
-            return _.toPairs(data).map(function(pair) {
-                const value_type = _value_to_type(pair[1]);
-                const result = {
-                    MeasureName: name,
-                    MeasureValue: pair[1],
-                    MeasureValueType: value_type,
-                    Time: pair[0]
-                };
-                return result;
-            });
-        })
-
-        // flatten the list to a single list of points
-        records = records.flat();
-        // filter out any missing values (possible if a row is incomplete, due
-        // to a device being turned on/off in the middle of an update interval)
-        records = records.filter(measure => measure.MeasureValue != '');
+            return {
+                MeasureName: item.path,
+                MeasureValue: `${item.value}`,
+                MeasureValueType: _value_to_type(item.value),
+                Time: `${item.time}`,
+                Dimensions: [{
+                    Name: 'source',
+                    Value: item.$source,
+                    DimensionValueType: 'VARCHAR'
+                }]
+            };
+        });
 
         // timestream requires we submit batches of 100 data points, so chunk
         // the records
@@ -146,8 +142,9 @@ exports.handler = async (event) => {
             const s3_result = _get_from_s3();
             console.log(`done: get object from s3`);
 
-            const rows = await _parse_csv(s3_result);
-            const ts = await _write_to_timestream(rows);
+            const state = await _parse_json(s3_result);
+            const points = from_batch(state);
+            const ts = await _write_to_timestream(points);
 
             console.log(`done: uploaded ${ts.length} batches to timestream`);
 
