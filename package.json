@@ -1,7 +1,7 @@
 {
   "name": "signalk-to-timestream-lambda",
   "version": "1.0.0",
-  "description": "Lambda worker to convert signalk csv to timestreamp",
+  "description": "Lambda worker to convert signalk batch json to timestream",
   "main": "index.js",
   "author": "Craig Howard <craig@choward.ca>",
   "repository": "https://github.com/c33howard/signalk-to-timestream-lambda.git",
