@@ -44,4 +44,8 @@ In the lambda, set the following environment variables:
 * SELF_ID Your self id string from signalk (ie: urn:mrn:imo:mmsi:1234)
 * DELETE_FROM_S3_ON_SUCCESS (Optional) the string "yes" or "no" to indicate whether this script should do the delete from S3
 
+Depending on how many metrics you're publishing to timestream, you may need to
+slightly increase the RAM and/or timeout of your lambda.  I'm running with
+192MB of RAM and a 10s timeout.
+
 [signalk-to-batch-format]: https://github.com/c33howard/signalk-to-batch-format
