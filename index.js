@@ -78,6 +78,19 @@ exports.handler = async (event) => {
         }
     };
 
+    let _filter_old_points = function(points) {
+        const now = new Date();
+        const one_day_ago = now - 24 * 60 * 60 * 1000;
+        return points.filter(p => {
+            if (p.time > one_day_ago) {
+                return true;
+            } else {
+                console.log(`point ${p.path} has timestamp (${p.time}) that is too old`);
+                return false;
+            }
+        });
+    };
+
     let _write_to_timestream = function(points) {
         const records = points.map(function(item) {
             const value_type = _value_to_type(item.value);
@@ -126,6 +139,7 @@ exports.handler = async (event) => {
                 timestream_write.writeRecords(write_records_command, function(err, data) {
                     if (err) {
                         console.log(err, data);
+                        console.log(err.RejectedRecord);
                         console.log(err.RejectedRecords);
                         reject(err);
                     }
@@ -144,7 +158,7 @@ exports.handler = async (event) => {
 
             const state = await _parse_json(s3_result);
             const points = from_batch(state);
-            const ts = await _write_to_timestream(points);
+            const ts = await _write_to_timestream(_filter_old_points(points));
 
             console.log(`done: uploaded ${ts.length} batches to timestream`);
 
